@@ -15,7 +15,7 @@ namespace UnityEssentials
     /// </summary>
     public sealed class UnityEssentialsPackageManagerWindow : EditorWindow
     {
-        private const string GitHubUser = "CanTalat-Yakan";
+        private const string GitHubUser = "EggyStudio";
 
         private sealed class PackageAddFailure
         {
