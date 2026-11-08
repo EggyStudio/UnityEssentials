@@ -202,13 +202,19 @@ namespace UnityEssentials
                 string url = $"https://api.github.com/users/{user}/repos?per_page=100&page={page}";
                 var json = HttpGet(url, out long code, out Dictionary<string, string> headers);
 
-                if (code == 403 && headers != null && headers.TryGetValue("x-ratelimit-remaining", out var remaining) && remaining == "0")
+                if (code == 403 && IsRateLimited(headers))
                 {
                     Debug.LogError("GitHub rate limit exceeded. Try again later.");
                     return null;
                 }
 
-                if (string.IsNullOrEmpty(json)) break;
+                // A failed page ends the listing with an error rather than a break, because the account has
+                // more than one page of repositories and a partial list would hide packages without a message.
+                if (code < 200 || code >= 300 || string.IsNullOrEmpty(json))
+                {
+                    Debug.LogError($"GitHub repository listing failed on page {page} (HTTP {code}).");
+                    return null;
+                }
 
                 var wrapped = "{\"items\":" + json + "}";
                 RepoListWrapper wrapper;
@@ -227,6 +233,20 @@ namespace UnityEssentials
                 page++;
             }
             return all;
+        }
+
+        // HTTP header names are case-insensitive, and GitHub sends this one as X-RateLimit-Remaining over HTTP/1.1,
+        // while the dictionary Unity returns compares keys exactly.
+        private static bool IsRateLimited(Dictionary<string, string> headers)
+        {
+            if (headers == null)
+                return false;
+
+            foreach (var pair in headers)
+                if (string.Equals(pair.Key, "X-RateLimit-Remaining", StringComparison.OrdinalIgnoreCase))
+                    return pair.Value == "0";
+
+            return false;
         }
 
         private static string HttpGet(string url, out long responseCode, out Dictionary<string, string> responseHeaders)
